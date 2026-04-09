@@ -2,7 +2,7 @@
 // Yahoo Finance wrapper met 2-minuten cache.
 // Gebruik: const { getKoers, getKoersen, zoekAandeel } = require('../../core/koersen');
 
-const yahooFinance = require('yahoo-finance2').default;
+const yahooFinance = require('yahoo-finance2/dist/cjs/src/index.js').default;
 
 const cache  = new Map();
 const MAX_MS = 2 * 60 * 1000; // 2 minuten — veilig zonder API limieten
