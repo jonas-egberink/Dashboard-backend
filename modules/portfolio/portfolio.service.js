@@ -1,9 +1,8 @@
 // modules/portfolio/portfolio.service.js
-// FIFO berekening van portfolio posities.
-// Losgekoppeld van de route zodat je het ook in andere modules kunt hergebruiken.
+// FIFO berekening van portfolio posities, gegroepeerd per rekening.
 
-const supabase          = require('../../core/supabase');
-const { getKoersen }    = require('../../core/koersen');
+const supabase       = require('../../core/supabase');
+const { getKoersen } = require('../../core/koersen');
 
 async function berekenPortfolio(gebruikerId) {
   // 1. Haal aandelen op
@@ -11,6 +10,7 @@ async function berekenPortfolio(gebruikerId) {
     .from('aandelen')
     .select('*')
     .eq('gebruiker_id', gebruikerId)
+    .order('rekening')
     .order('ticker');
   if (ae) throw ae;
 
@@ -36,7 +36,7 @@ async function berekenPortfolio(gebruikerId) {
     let aantalAandelen = 0;
     let totaleKost     = 0;
     let grealiseerdGV  = 0;
-    const voorraad     = []; // FIFO stapel: [{ aantal, prijs }]
+    const voorraad     = [];
 
     [...txs]
       .sort((a, b) => new Date(a.datum) - new Date(b.datum))
@@ -46,10 +46,10 @@ async function berekenPortfolio(gebruikerId) {
           aantalAandelen += tx.aantal;
           totaleKost     += tx.aantal * tx.prijs + (tx.fees || 0);
         } else if (tx.type === 'Sell') {
-          let teVerkopen  = tx.aantal;
+          let teVerkopen   = tx.aantal;
           let kostVerkocht = 0;
           while (teVerkopen > 0 && voorraad.length > 0) {
-            const lot    = voorraad[0];
+            const lot     = voorraad[0];
             const genomen = Math.min(lot.aantal, teVerkopen);
             kostVerkocht  += genomen * lot.prijs;
             lot.aantal    -= genomen;
@@ -62,10 +62,10 @@ async function berekenPortfolio(gebruikerId) {
         }
       });
 
-    const gemKost    = aantalAandelen > 0 ? totaleKost / aantalAandelen : 0;
+    const gemKost     = aantalAandelen > 0 ? totaleKost / aantalAandelen : 0;
     const marktWaarde = aantalAandelen * (koers?.prijs ?? 0);
-    const ongrealGV  = aantalAandelen > 0 ? marktWaarde - totaleKost : 0;
-    const ongrealPct = totaleKost > 0 ? ongrealGV / totaleKost : 0;
+    const ongrealGV   = aantalAandelen > 0 ? marktWaarde - totaleKost : 0;
+    const ongrealPct  = totaleKost > 0 ? ongrealGV / totaleKost : 0;
 
     return {
       id:                  aandeel.id,
@@ -73,6 +73,7 @@ async function berekenPortfolio(gebruikerId) {
       naam:                aandeel.naam,
       exchange:            aandeel.exchange,
       valuta:              aandeel.valuta,
+      rekening:            aandeel.rekening || 'Standaard',
       aantalAandelen:      rond(aantalAandelen, 6),
       gemiddeldeKostprijs: rond(gemKost),
       totaleKost:          rond(totaleKost),
@@ -89,7 +90,31 @@ async function berekenPortfolio(gebruikerId) {
     };
   });
 
-  // 5. Totaalcijfers
+  // 5. Groepeer per rekening
+  const rekeningMap = {};
+  posities.forEach(p => {
+    const r = p.rekening;
+    if (!rekeningMap[r]) rekeningMap[r] = [];
+    rekeningMap[r].push(p);
+  });
+
+  const rekeningen = Object.entries(rekeningMap).map(([naam, pos]) => {
+    const actief = pos.filter(p => p.aantalAandelen > 0);
+    return {
+      naam,
+      posities: pos,
+      totalen: {
+        portfolioWaarde: rond(actief.reduce((s, p) => s + p.marktWaarde, 0)),
+        totaleKost:      rond(actief.reduce((s, p) => s + p.totaleKost, 0)),
+        ongrealiseerdGV: rond(actief.reduce((s, p) => s + p.ongrealiseerdGV, 0)),
+        grealiseerdGV:   rond(pos.reduce((s, p) => s + p.grealiseerdGV, 0)),
+        totaalGV:        rond(pos.reduce((s, p) => s + p.totaalGV, 0)),
+        aantalAandelen:  actief.length,
+      },
+    };
+  });
+
+  // 6. Totaalcijfers over alle rekeningen
   const actief  = posities.filter(p => p.aantalAandelen > 0);
   const totalen = {
     portfolioWaarde:   rond(actief.reduce((s, p) => s + p.marktWaarde, 0)),
@@ -100,7 +125,7 @@ async function berekenPortfolio(gebruikerId) {
   };
   totalen.totaalGV = rond(totalen.ongrealiseerdGV + totalen.grealiseerdGV);
 
-  return { posities, totalen, bijgewerkt: new Date().toISOString() };
+  return { posities, rekeningen, totalen, bijgewerkt: new Date().toISOString() };
 }
 
 const rond = (v, d = 2) => Math.round(v * Math.pow(10, d)) / Math.pow(10, d);

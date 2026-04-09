@@ -20,6 +20,8 @@ const portfolioRouter   = require('./modules/portfolio/portfolio.routes');
 const transactiesRouter = require('./modules/transacties/transacties.routes');
 const aandelenRouter    = require('./modules/aandelen/aandelen.routes');
 const paginasRouter     = require('./modules/paginas/paginas.routes');
+const nieuwsRouter      = require('./modules/nieuws/nieuws.routes');
+const adviesRouter      = require('./modules/advies/advies.routes');
 // ─────────────────────────────────────────────────────────────
 
 const app = express();
@@ -63,7 +65,9 @@ app.use('/api/auth',        authRouter);
 app.use('/api/portfolio',   portfolioRouter);
 app.use('/api/transacties', transactiesRouter);
 app.use('/api/aandelen',    aandelenRouter);
-app.use('/api/paginas',    paginasRouter);
+app.use('/api/paginas',     paginasRouter);
+app.use('/api/nieuws',      nieuwsRouter);
+app.use('/api/advies',      adviesRouter);
 // ─────────────────────────────────────────────────────────────
 
 // ── 404 & ERROR HANDLER ── altijd als laatste ─────────────────

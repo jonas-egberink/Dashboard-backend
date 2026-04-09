@@ -49,23 +49,25 @@ router.get('/:id/koers', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /api/aandelen ────────────────────────────────────────
-// Stuur alleen { ticker } — backend haalt naam/exchange/valuta automatisch op
+// ── POST /api/aandelen ────────────────────────────────────────────────────
+// Stuur { ticker, rekening } — backend haalt naam/exchange/valuta automatisch op
 router.post('/', async (req, res, next) => {
   try {
-    const { ticker } = req.body;
+    const { ticker, rekening } = req.body;
     if (!ticker) return res.status(400).json(fout('ticker is verplicht.', 400));
 
-    const schoon = ticker.trim().toUpperCase();
+    const schoon   = ticker.trim().toUpperCase();
+    const rekeningNaam = (rekening || 'Standaard').trim();
 
-    // Al in bezit?
+    // Al in bezit in dezelfde rekening?
     const { data: bestaand } = await supabase
       .from('aandelen')
       .select('id')
       .eq('gebruiker_id', req.gebruiker.id)
       .eq('ticker', schoon)
+      .eq('rekening', rekeningNaam)
       .single();
-    if (bestaand) return res.status(409).json(fout(`${schoon} staat al in je lijst.`, 409));
+    if (bestaand) return res.status(409).json(fout(`${schoon} staat al in rekening "${rekeningNaam}".`, 409));
 
     // Info ophalen
     const info = await zoekAandeel(schoon);
@@ -80,6 +82,7 @@ router.post('/', async (req, res, next) => {
         exchange: info.exchange,
         valuta:   info.valuta,
         type:     info.type,
+        rekening: rekeningNaam,
       })
       .select()
       .single();
