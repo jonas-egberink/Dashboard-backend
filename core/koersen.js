@@ -1,54 +1,41 @@
 // core/koersen.js
 // Yahoo Finance wrapper met 2-minuten cache.
-// Gebruik: const { getKoers, getKoersen, zoekAandeel } = require('../../core/koersen');
 
-const yahooFinance = require('yahoo-finance2').default;
+const YahooFinance = require('yahoo-finance2').default;
+const yf = new YahooFinance();
 
 const cache  = new Map();
-const MAX_MS = 2 * 60 * 1000; // 2 minuten — veilig zonder API limieten
+const MAX_MS = 2 * 60 * 1000;
 
 // ── EXCHANGE MAPPING ──────────────────────────────────────────
-// Zet "EXCHANGE:TICKER" notaties om naar Yahoo Finance formaat
 const EXCHANGE_MAP = {
-  'AMS':    '.AS',   // Amsterdam (Euronext)
-  'EPA':    '.PA',   // Parijs (Euronext)
-  'ETR':    '.DE',   // Frankfurt (XETRA)
-  'LON':    '.L',    // Londen (LSE)
-  'BIT':    '.MI',   // Milaan
-  'BME':    '.MC',   // Madrid
-  'STO':    '.ST',   // Stockholm
-  'CPH':    '.CO',   // Kopenhagen
-  'HEL':    '.HE',   // Helsinki
-  'OSL':    '.OL',   // Oslo
-  'VIE':    '.VI',   // Wenen
-  'JSE':    '.JO',   // Johannesburg
-  'TSX':    '.TO',   // Toronto
-  'ASX':    '.AX',   // Australië
-  'HKG':    '.HK',   // Hong Kong
-  'TYO':    '.T',    // Tokyo
-  'SHA':    '.SS',   // Shanghai
-  'SHE':    '.SZ',   // Shenzhen
-  'NASDAQ': '',      // Nasdaq — geen suffix nodig
-  'NYSE':   '',      // NYSE — geen suffix nodig
+  'AMS':    '.AS',
+  'EPA':    '.PA',
+  'ETR':    '.DE',
+  'LON':    '.L',
+  'BIT':    '.MI',
+  'BME':    '.MC',
+  'STO':    '.ST',
+  'CPH':    '.CO',
+  'HEL':    '.HE',
+  'OSL':    '.OL',
+  'VIE':    '.VI',
+  'TSX':    '.TO',
+  'ASX':    '.AX',
+  'HKG':    '.HK',
+  'TYO':    '.T',
+  'SHA':    '.SS',
+  'SHE':    '.SZ',
+  'NASDAQ': '',
+  'NYSE':   '',
 };
 
-/**
- * Zet een ticker om naar Yahoo Finance formaat.
- * "AMS:VUSA" → "VUSA.AS"
- * "NASDAQ:AAPL" → "AAPL"
- * "AAPL" → "AAPL" (ongewijzigd)
- */
 function normaliseerTicker(ticker) {
   const schoon = ticker.trim().toUpperCase();
   if (!schoon.includes(':')) return schoon;
-
   const [exchange, symbool] = schoon.split(':', 2);
   const suffix = EXCHANGE_MAP[exchange];
-
-  if (suffix === undefined) {
-    // Onbekende exchange — probeer het symbool alleen
-    return symbool;
-  }
+  if (suffix === undefined) return symbool;
   return symbool + suffix;
 }
 
@@ -59,19 +46,19 @@ async function getKoers(ticker) {
   if (cached && (nu - cached.bijgewerkt) < MAX_MS) return cached;
 
   try {
-    const q    = await yahooFinance.quote(yTicker, {}, { validateResult: false });
+    const q = await yf.quote(yTicker, {}, { validateResult: false });
     const data = {
-      ticker,          // originele ticker bewaren
-      yTicker,         // Yahoo Finance ticker
-      prijs:        q.regularMarketPrice          ?? null,
-      opening:      q.regularMarketOpen           ?? null,
-      daghoog:      q.regularMarketDayHigh        ?? null,
-      daglaag:      q.regularMarketDayLow         ?? null,
-      wijziging:    q.regularMarketChange         ?? null,
-      wijzigingPct: q.regularMarketChangePercent  ?? null,
-      naam:         q.longName || q.shortName     || ticker,
-      valuta:       q.currency                    ?? 'USD',
-      exchange:     q.exchange                    ?? '',
+      ticker,
+      yTicker,
+      prijs:        q.regularMarketPrice         ?? null,
+      opening:      q.regularMarketOpen          ?? null,
+      daghoog:      q.regularMarketDayHigh       ?? null,
+      daglaag:      q.regularMarketDayLow        ?? null,
+      wijziging:    q.regularMarketChange        ?? null,
+      wijzigingPct: q.regularMarketChangePercent ?? null,
+      naam:         q.longName || q.shortName    || ticker,
+      valuta:       q.currency                   ?? 'EUR',
+      exchange:     q.exchange                   ?? '',
       bijgewerkt:   nu,
     };
     cache.set(yTicker, data);
@@ -92,7 +79,7 @@ async function getKoersen(tickers) {
 async function zoekAandeel(ticker) {
   const yTicker = normaliseerTicker(ticker);
   try {
-    const q = await yahooFinance.quote(yTicker, {}, { validateResult: false });
+    const q = await yf.quote(yTicker, {}, { validateResult: false });
     if (!q || !q.regularMarketPrice) return { ticker: ticker.toUpperCase(), gevonden: false };
     return {
       ticker:   ticker.toUpperCase(),

@@ -24,6 +24,9 @@ const paginasRouter     = require('./modules/paginas/paginas.routes');
 
 const app = express();
 
+// Railway gebruikt een proxy — vertrouw de X-Forwarded-For header
+app.set('trust proxy', 1);
+
 // ── CORS ──────────────────────────────────────────────────────
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',').map(o => o.trim()).filter(Boolean);
