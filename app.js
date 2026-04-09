@@ -29,11 +29,8 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',').map(o => o.trim()).filter(Boolean);
 
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) return cb(null, true);
-    cb(new Error('Niet toegestaan door CORS'));
-  },
-  credentials: true,
+  origin: '*',
+  credentials: false,
 }));
 
 // ── RATE LIMITING ─────────────────────────────────────────────
