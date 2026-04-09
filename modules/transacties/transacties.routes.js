@@ -1,0 +1,111 @@
+// modules/transacties/transacties.routes.js
+// Endpoints: GET | POST | DELETE /api/transacties
+
+const express        = require('express');
+const supabase       = require('../../core/supabase');
+const { vereisLogin} = require('../../core/auth');
+const { ok, fout }   = require('../../core/response');
+const router         = express.Router();
+
+router.use(vereisLogin);
+
+// ── GET /api/transacties ──────────────────────────────────────
+// Optionele query params: ?ticker=AAPL &type=Buy &van=2024-01-01 &tot=2024-12-31
+router.get('/', async (req, res, next) => {
+  try {
+    const { ticker, type, van, tot } = req.query;
+    let query = supabase
+      .from('transacties')
+      .select('*, aandelen(ticker, naam, valuta, exchange)')
+      .eq('gebruiker_id', req.gebruiker.id)
+      .order('datum', { ascending: false })
+      .order('aangemaakt', { ascending: false });
+
+    if (type) query = query.eq('type', type);
+    if (van)  query = query.gte('datum', van);
+    if (tot)  query = query.lte('datum', tot);
+
+    if (ticker) {
+      const { data: a } = await supabase
+        .from('aandelen')
+        .select('id')
+        .eq('gebruiker_id', req.gebruiker.id)
+        .eq('ticker', ticker.toUpperCase())
+        .single();
+      if (a) query = query.eq('aandeel_id', a.id);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const geformatteerd = data.map(t => ({
+      id:      t.id,
+      datum:   t.datum,
+      type:    t.type,
+      ticker:  t.aandelen?.ticker ?? '',
+      naam:    t.aandelen?.naam   ?? '',
+      valuta:  t.aandelen?.valuta ?? 'USD',
+      aantal:  t.aantal,
+      prijs:   t.prijs,
+      fees:    t.fees,
+      totaal:  Math.round((t.aantal * t.prijs + t.fees) * 100) / 100,
+      notitie: t.notitie,
+    }));
+
+    res.json(ok(geformatteerd));
+  } catch (err) { next(err); }
+});
+
+// ── POST /api/transacties ─────────────────────────────────────
+router.post('/', async (req, res, next) => {
+  try {
+    const { aandeel_id, type, datum, aantal, prijs, fees, notitie } = req.body;
+
+    if (!aandeel_id || !type || !datum || !aantal || !prijs)
+      return res.status(400).json(fout('aandeel_id, type, datum, aantal en prijs zijn verplicht.', 400));
+    if (!['Buy', 'Sell'].includes(type))
+      return res.status(400).json(fout('type moet "Buy" of "Sell" zijn.', 400));
+
+    // Controleer of het aandeel van déze gebruiker is
+    const { data: aandeel } = await supabase
+      .from('aandelen')
+      .select('id, ticker')
+      .eq('id', aandeel_id)
+      .eq('gebruiker_id', req.gebruiker.id)
+      .single();
+    if (!aandeel) return res.status(403).json(fout('Aandeel niet gevonden.', 403));
+
+    const { data, error } = await supabase
+      .from('transacties')
+      .insert({
+        gebruiker_id: req.gebruiker.id,
+        aandeel_id,
+        type,
+        datum,
+        aantal:  parseFloat(aantal),
+        prijs:   parseFloat(prijs),
+        fees:    parseFloat(fees ?? 0),
+        notitie: notitie ?? null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(ok(data, 201));
+  } catch (err) { next(err); }
+});
+
+// ── DELETE /api/transacties/:id ───────────────────────────────
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const { error } = await supabase
+      .from('transacties')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('gebruiker_id', req.gebruiker.id);
+    if (error) throw error;
+    res.json(ok({ verwijderd: true }));
+  } catch (err) { next(err); }
+});
+
+module.exports = router;
