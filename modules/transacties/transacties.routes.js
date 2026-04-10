@@ -84,6 +84,28 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// PATCH /api/transacties/bulk-valuta — pas valuta aan voor alle transacties van een aandeel
+router.patch('/bulk-valuta', async (req, res, next) => {
+  try {
+    const { aandeel_id, valuta } = req.body;
+    if (!aandeel_id || !valuta) return res.status(400).json(fout('aandeel_id en valuta zijn verplicht.', 400));
+
+    // Verifieer dat het aandeel van deze gebruiker is
+    const { data: aandeel } = await supabase
+      .from('aandelen').select('id')
+      .eq('id', aandeel_id).eq('gebruiker_id', req.gebruiker.id).single();
+    if (!aandeel) return res.status(403).json(fout('Aandeel niet gevonden.', 403));
+
+    const { error } = await supabase
+      .from('transacties')
+      .update({ valuta: valuta.toUpperCase() })
+      .eq('aandeel_id', aandeel_id)
+      .eq('gebruiker_id', req.gebruiker.id);
+    if (error) throw error;
+    res.json(ok({ bijgewerkt: true }));
+  } catch (err) { next(err); }
+});
+
 // PATCH /api/transacties/:id — pas bestaande transactie aan
 router.patch('/:id', async (req, res, next) => {
   try {
