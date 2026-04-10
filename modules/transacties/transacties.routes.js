@@ -41,7 +41,7 @@ router.get('/', async (req, res, next) => {
       type:       t.type,
       ticker:     t.aandelen?.ticker ?? '',
       naam:       t.aandelen?.naam   ?? '',
-      valuta:     t.aandelen?.valuta ?? 'EUR',
+      valuta:     t.valuta || t.aandelen?.valuta || 'EUR',
       aantal:     t.aantal,
       prijs:      t.prijs,
       fees:       t.fees,
@@ -56,7 +56,7 @@ router.get('/', async (req, res, next) => {
 // POST /api/transacties
 router.post('/', async (req, res, next) => {
   try {
-    const { aandeel_id, type, datum, aantal, prijs, fees, notitie } = req.body;
+    const { aandeel_id, type, datum, aantal, prijs, fees, valuta, notitie } = req.body;
     if (!aandeel_id || !type || !datum || !aantal || !prijs)
       return res.status(400).json(fout('aandeel_id, type, datum, aantal en prijs zijn verplicht.', 400));
     if (!['Buy', 'Sell'].includes(type))
@@ -75,6 +75,7 @@ router.post('/', async (req, res, next) => {
         aantal:  parseFloat(aantal),
         prijs:   parseFloat(prijs),
         fees:    parseFloat(fees ?? 0),
+        valuta:  (valuta || 'EUR').toUpperCase(),
         notitie: notitie ?? null,
       })
       .select().single();
@@ -86,7 +87,7 @@ router.post('/', async (req, res, next) => {
 // PATCH /api/transacties/:id — pas bestaande transactie aan
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { type, datum, aantal, prijs, fees, notitie } = req.body;
+    const { type, datum, aantal, prijs, fees, valuta, notitie } = req.body;
     const { data: bestaand } = await supabase
       .from('transacties').select('id')
       .eq('id', req.params.id).eq('gebruiker_id', req.gebruiker.id).single();
@@ -98,6 +99,7 @@ router.patch('/:id', async (req, res, next) => {
     if (aantal  !== undefined) update.aantal  = parseFloat(aantal);
     if (prijs   !== undefined) update.prijs   = parseFloat(prijs);
     if (fees    !== undefined) update.fees    = parseFloat(fees);
+    if (valuta  !== undefined) update.valuta  = valuta.toUpperCase();
     if (notitie !== undefined) update.notitie = notitie;
 
     const { data, error } = await supabase

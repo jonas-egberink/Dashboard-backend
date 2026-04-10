@@ -57,7 +57,7 @@ async function berekenPortfolio(gebruikerId) {
     .order('ticker');
   if (ae) throw ae;
 
-  // 3. Transacties ophalen
+  // 3. Transacties ophalen — inclusief eigen valuta per transactie
   const { data: transacties, error: te } = await supabase
     .from('transacties')
     .select('*, aandelen(ticker, naam, valuta)')
@@ -83,8 +83,11 @@ async function berekenPortfolio(gebruikerId) {
     const voorraad     = []; // FIFO: { aantal, prijsEUR }
 
     txs.forEach(tx => {
-      const prijsEUR = naarEUR(tx.prijs, valuta, wisselkoersen);
-      const feesEUR  = naarEUR(tx.fees || 0, valuta, wisselkoersen);
+      // Gebruik de valuta van de transactie zelf (niet het aandeel)
+      // zodat USD-aankopen correct omgezet worden
+      const txValuta = tx.valuta || valuta || 'EUR';
+      const prijsEUR = naarEUR(tx.prijs, txValuta, wisselkoersen);
+      const feesEUR  = naarEUR(tx.fees || 0, txValuta, wisselkoersen);
 
       if (tx.type === 'Buy') {
         voorraad.push({ aantal: tx.aantal, prijsEUR });
