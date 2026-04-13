@@ -516,6 +516,14 @@ async function slaAutoInvestPlanOp(gebruikerId, groepId, payload) {
   const groep = decodeURIComponent(groepId).trim();
   if (!groep) throw fout('groupId is verplicht.', 400);
 
+  const { data: bestaandPlan, error: bestaandError } = await supabase
+    .from('autoinvest_plannen')
+    .select('id, startdatum, aangemaakt')
+    .eq('gebruiker_id', gebruikerId)
+    .eq('groep', groep)
+    .maybeSingle();
+  if (bestaandError) throw bestaandError;
+
   const holdings = (await haalAandelenOpVoorGebruiker(gebruikerId)).filter(item => (item.rekening || 'Standaard') === groep);
   if (!holdings.length) throw fout(`Groep "${groep}" bevat nog geen aandelen.`, 400);
 
@@ -524,7 +532,7 @@ async function slaAutoInvestPlanOp(gebruikerId, groepId, payload) {
   const maandbedragValuta = String(payload?.maandBedragValuta || 'EUR').trim() || 'EUR';
   const maandbedragEur = naarEUR(maandbedrag, maandbedragValuta);
   const uitvoerDag = Number(payload?.uitvoerDag);
-  const startdatum = formatDatum(new Date());
+  const startdatum = bestaandPlan?.startdatum || formatDatum(new Date());
   const actief = payload?.actief !== false;
   const allocaties = normaliseerAllocaties(payload?.allocaties, holdingsById);
 
