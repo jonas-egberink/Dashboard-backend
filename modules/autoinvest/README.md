@@ -6,11 +6,11 @@ Deze module voegt een modulaire Auto-Invest simulatie toe bovenop de bestaande S
 
 - 1 plan per `rekening`/groep
 - maandbedrag in elke ondersteunde valuta (bijv. EUR/USD/GBP)
-- uitvoeringsdag per maand
+- uitvoeringsdag per maand (1 t/m 28)
 - allocaties per aandeel binnen de groep
 - niet elk aandeel uit de groep hoeft in de allocatie te zitten
 - actief / gepauzeerd
-- start- en optionele einddatum
+- geen start/einddatum in de UI; het plan draait maandelijks zolang het actief staat
 - uitvoeringshistorie in Supabase
 - bij uitvoering worden gewone `Buy`-transacties toegevoegd aan `transacties`
 - uitvoering gebruikt per aandeel de valuta van de laatste transactie (fallback: aandeelvaluta)

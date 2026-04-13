@@ -56,7 +56,7 @@ create table if not exists autoinvest_plannen (
   maandbedrag_input numeric(18,2),
   maandbedrag_valuta text not null default 'EUR',
   maandbedrag_eur  numeric(18,2) not null check (maandbedrag_eur > 0),
-  uitvoer_dag      integer not null check (uitvoer_dag between 1 and 31),
+  uitvoer_dag      integer not null check (uitvoer_dag between 1 and 28),
   startdatum       date not null,
   einddatum        date,
   actief           boolean not null default true,

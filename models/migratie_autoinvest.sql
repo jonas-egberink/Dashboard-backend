@@ -10,7 +10,7 @@ create table if not exists autoinvest_plannen (
   maandbedrag_input numeric(18,2),
   maandbedrag_valuta text not null default 'EUR',
   maandbedrag_eur  numeric(18,2) not null check (maandbedrag_eur > 0),
-  uitvoer_dag      integer not null check (uitvoer_dag between 1 and 31),
+  uitvoer_dag      integer not null check (uitvoer_dag between 1 and 28),
   startdatum       date not null,
   einddatum        date,
   actief           boolean not null default true,
@@ -56,5 +56,9 @@ alter table autoinvest_plannen add column if not exists maandbedrag_valuta text 
 update autoinvest_plannen
 set maandbedrag_input = coalesce(maandbedrag_input, maandbedrag_eur)
 where maandbedrag_input is null;
+
+update autoinvest_plannen
+set uitvoer_dag = greatest(1, least(uitvoer_dag, 28))
+where uitvoer_dag is not null;
 
 

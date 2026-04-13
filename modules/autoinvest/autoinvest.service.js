@@ -226,12 +226,9 @@ function valideerBewaardPlan(plan, holdingsById) {
 }
 
 function berekenVolgendeUitvoering(plan, vanafDatum, verwerkteDatums = new Set()) {
-  if (!plan?.startdatum || !plan?.uitvoer_dag) return null;
+  if (!plan?.uitvoer_dag) return null;
 
-  const start = parseDatum(plan.startdatum);
-  const vanaf = parseDatum(vanafDatum || plan.startdatum);
-  const grens = start > vanaf ? start : vanaf;
-  const eind = plan.einddatum ? parseDatum(plan.einddatum) : null;
+  const grens = parseDatum(vanafDatum) || parseDatum(amsterdamParts().datum);
 
   let jaar = grens.getUTCFullYear();
   let maand = grens.getUTCMonth();
@@ -239,7 +236,7 @@ function berekenVolgendeUitvoering(plan, vanafDatum, verwerkteDatums = new Set()
   for (let i = 0; i < 36; i++) {
     const kandidaat = berekenMaandDatum(jaar, maand, plan.uitvoer_dag);
     const kandidaatDate = parseDatum(kandidaat);
-    if (kandidaatDate >= start && kandidaatDate >= grens && (!eind || kandidaatDate <= eind) && !verwerkteDatums.has(kandidaat)) {
+    if (kandidaatDate >= grens && !verwerkteDatums.has(kandidaat)) {
       return kandidaat;
     }
     maand += 1;
@@ -253,8 +250,7 @@ function berekenVolgendeUitvoering(plan, vanafDatum, verwerkteDatums = new Set()
 }
 
 function lijstVerschuldigdeDatums(plan, alUitgevoerd, vandaag) {
-  const start = parseDatum(plan.startdatum);
-  const eind = plan.einddatum ? parseDatum(plan.einddatum) : parseDatum(vandaag);
+  const start = parseDatum((plan.bijgewerkt || plan.aangemaakt || vandaag).slice(0, 10));
   const laatste = parseDatum(vandaag);
   const resultaten = [];
 
@@ -264,7 +260,7 @@ function lijstVerschuldigdeDatums(plan, alUitgevoerd, vandaag) {
   while (Date.UTC(jaar, maand, 1) <= Date.UTC(laatste.getUTCFullYear(), laatste.getUTCMonth(), 1)) {
     const datum = berekenMaandDatum(jaar, maand, plan.uitvoer_dag);
     const dateObj = parseDatum(datum);
-    if (dateObj >= start && dateObj <= laatste && (!eind || dateObj <= eind) && !alUitgevoerd.has(datum)) {
+    if (dateObj >= start && dateObj <= laatste && !alUitgevoerd.has(datum)) {
       resultaten.push(datum);
     }
 
@@ -434,8 +430,6 @@ function bouwGroepView(groep, holdings, plan, laatsteRun, runDatums, vandaag, wi
       maandbedragValuta: plan.maandbedrag_valuta || 'EUR',
       maandbedragEur: Number(plan.maandbedrag_eur),
       uitvoerDag: plan.uitvoer_dag,
-      startdatum: plan.startdatum,
-      einddatum: plan.einddatum,
       actief: !!plan.actief,
       allocaties: verrijkAllocaties(plan, holdingsById),
       volgendeUitvoering,
@@ -530,16 +524,12 @@ async function slaAutoInvestPlanOp(gebruikerId, groepId, payload) {
   const maandbedragValuta = String(payload?.maandBedragValuta || 'EUR').trim() || 'EUR';
   const maandbedragEur = naarEUR(maandbedrag, maandbedragValuta);
   const uitvoerDag = Number(payload?.uitvoerDag);
-  const startdatum = payload?.startdatum;
-  const einddatum = payload?.einddatum || null;
+  const startdatum = formatDatum(new Date());
   const actief = payload?.actief !== false;
   const allocaties = normaliseerAllocaties(payload?.allocaties, holdingsById);
 
   if (!Number.isFinite(maandbedrag) || maandbedrag <= 0) throw fout('maandBedrag moet groter zijn dan 0.');
-  if (!Number.isInteger(uitvoerDag) || uitvoerDag < 1 || uitvoerDag > 31) throw fout('uitvoerDag moet tussen 1 en 31 liggen.');
-  if (!parseDatum(startdatum)) throw fout('startdatum is verplicht en moet een geldige datum zijn.');
-  if (einddatum && !parseDatum(einddatum)) throw fout('einddatum moet een geldige datum zijn.');
-  if (einddatum && parseDatum(einddatum) < parseDatum(startdatum)) throw fout('einddatum mag niet voor startdatum liggen.');
+  if (!Number.isInteger(uitvoerDag) || uitvoerDag < 1 || uitvoerDag > 28) throw fout('uitvoerDag moet tussen 1 en 28 liggen.');
 
   const { error } = await supabase
     .from('autoinvest_plannen')
@@ -551,7 +541,7 @@ async function slaAutoInvestPlanOp(gebruikerId, groepId, payload) {
       maandbedrag_eur: rond(maandbedragEur, 2),
       uitvoer_dag: uitvoerDag,
       startdatum,
-      einddatum,
+      einddatum: null,
       actief,
       allocaties,
       bijgewerkt: new Date().toISOString(),
@@ -721,8 +711,6 @@ async function voerVerschuldigdePlannenUit({ nu = new Date(), bron = 'scheduler'
     .from('autoinvest_plannen')
     .select('*')
     .eq('actief', true)
-    .lte('startdatum', vandaag)
-    .or(`einddatum.is.null,einddatum.gte.${vandaag}`)
     .order('gebruiker_id')
     .order('groep');
   if (error) throw error;
