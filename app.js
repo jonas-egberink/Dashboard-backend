@@ -22,6 +22,7 @@ const aandelenRouter    = require('./modules/aandelen/aandelen.routes');
 const paginasRouter     = require('./modules/paginas/paginas.routes');
 const nieuwsRouter      = require('./modules/nieuws/nieuws.routes');
 const adviesRouter      = require('./modules/advies/advies.routes');
+const autoinvestRouter  = require('./modules/autoinvest/autoinvest.routes');
 // ─────────────────────────────────────────────────────────────
 
 const app = express();
@@ -34,7 +35,10 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',').map(o => o.trim()).filter(Boolean);
 
 app.use(cors({
-  origin: '*',
+  origin(origin, cb) {
+    if (!origin || !allowedOrigins.length || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Origin niet toegestaan door CORS.'));
+  },
   credentials: false,
 }));
 
@@ -45,7 +49,7 @@ app.use('/api/auth', rateLimit({
   message: { success: false, error: 'Te veel verzoeken. Probeer later opnieuw.' },
 }));
 app.use('/api', rateLimit({
-  windowMs: 1 * 60 * 1000,
+  windowMs: 60 * 1000,
   max: 120,
 }));
 
@@ -68,6 +72,7 @@ app.use('/api/aandelen',    aandelenRouter);
 app.use('/api/paginas',     paginasRouter);
 app.use('/api/nieuws',      nieuwsRouter);
 app.use('/api/advies',      adviesRouter);
+app.use('/api/autoinvest',  autoinvestRouter);
 // ─────────────────────────────────────────────────────────────
 
 // ── 404 & ERROR HANDLER ── altijd als laatste ─────────────────

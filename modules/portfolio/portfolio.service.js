@@ -2,47 +2,9 @@
 // FIFO berekening van portfolio posities, gegroepeerd per rekening.
 // Alle bedragen worden omgezet naar EUR via live wisselkoersen.
 
-const supabase       = require('../../core/supabase');
-const { getKoersen } = require('../../core/koersen');
-
-// ── VALUTA CONVERSIE ──────────────────────────────────────────
-// Cache wisselkoersen 10 minuten
-let wisselCache = { koersen: {}, bijgewerkt: 0 };
-
-async function getWisselkoersen() {
-  const nu = Date.now();
-  if (nu - wisselCache.bijgewerkt < 10 * 60 * 1000) return wisselCache.koersen;
-
-  try {
-    const resp = await fetch('https://open.er-api.com/v6/latest/EUR', {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const json = await resp.json();
-    // Sla op als "hoeveel EUR = 1 vreemde valuta" → invers van de rates
-    const koersen = {};
-    for (const [valuta, rate] of Object.entries(json.rates || {})) {
-      koersen[valuta] = 1 / rate; // bijv. USD: 0.92 betekent 1 USD = 0.92 EUR
-    }
-    koersen['EUR'] = 1;
-    wisselCache = { koersen, bijgewerkt: nu };
-    return koersen;
-  } catch (err) {
-    console.warn('[wisselkoers] Fout:', err.message);
-    // Fallback — gebruik laatste cache of vaste waarden
-    return wisselCache.koersen.USD ? wisselCache.koersen : {
-      EUR: 1, USD: 0.92, GBP: 1.17, GBp: 0.0117, CHF: 1.04, JPY: 0.006,
-      CAD: 0.68, AUD: 0.60, SEK: 0.088, NOK: 0.085, DKK: 0.134,
-    };
-  }
-}
-
-function naarEUR(bedrag, valuta, wisselkoersen) {
-  if (!bedrag || !valuta || valuta === 'EUR') return bedrag;
-  // GBp (pence) → GBP → EUR
-  if (valuta === 'GBp') return bedrag * (wisselkoersen['GBP'] || 1.17) / 100;
-  return bedrag * (wisselkoersen[valuta] || 1);
-}
+const supabase                  = require('../../core/supabase');
+const { getKoersen }            = require('../../core/koersen');
+const { getWisselkoersen, naarEUR } = require('../../core/valuta');
 
 async function berekenPortfolio(gebruikerId) {
   // 1. Wisselkoersen ophalen
