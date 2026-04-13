@@ -31,16 +31,17 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ── CORS ──────────────────────────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',').map(o => o.trim()).filter(Boolean);
-
-app.use(cors({
-  origin(origin, cb) {
-    if (!origin || !allowedOrigins.length || allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error('Origin niet toegestaan door CORS.'));
-  },
+// Reflecteer request-origin zodat preflight niet op een serverfout eindigt.
+// Veilig in combinatie met credentials: false.
+const corsOptions = {
+  origin: true,
   credentials: false,
-}));
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ── RATE LIMITING ─────────────────────────────────────────────
 app.use('/api/auth', rateLimit({
