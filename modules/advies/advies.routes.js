@@ -17,7 +17,7 @@ const CACHE_MS    = 60 * 60 * 1000;
 router.post('/', async (req, res, next) => {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY; // naam behouden, is Google AI Studio key
-    if (!apiKey) return res.status(503).json(fout('AI API key niet ingesteld in Railway variables.', 503));
+    if (!apiKey) return res.status(503).json(fout('AI API key niet ingesteld in Render variables.', 503));
 
     const uid    = req.gebruiker.id;
     const cached = adviesCache.get(uid);

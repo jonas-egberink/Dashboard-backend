@@ -27,7 +27,7 @@ const autoinvestRouter  = require('./modules/autoinvest/autoinvest.routes');
 
 const app = express();
 
-// Railway gebruikt een proxy — vertrouw de X-Forwarded-For header
+// Render gebruikt een proxy — vertrouw de X-Forwarded-For header
 app.set('trust proxy', 1);
 
 // ── CORS ──────────────────────────────────────────────────────
